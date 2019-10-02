@@ -193,7 +193,8 @@ namespace XNode {
 
         /// <summary> Connect this <see cref="NodePort"/> to another </summary>
         /// <param name="port">The <see cref="NodePort"/> to connect to</param>
-        public void Connect(NodePort port) {
+        public void Connect(NodePort port)
+        {
             if (connections == null) connections = new List<PortConnection>();
             if (port == null) { Debug.LogWarning("Cannot connect to null port"); return; }
             if (port == this) { Debug.LogWarning("Cannot connect port to self."); return; }
@@ -202,10 +203,74 @@ namespace XNode {
             if (port.connectionType == Node.ConnectionType.Override && port.ConnectionCount != 0) { port.ClearConnections(); }
             if (connectionType == Node.ConnectionType.Override && ConnectionCount != 0) { ClearConnections(); }
             connections.Add(new PortConnection(port));
+
+            SetBackingValuesIfCorrectTypes(port);
+
             if (port.connections == null) port.connections = new List<PortConnection>();
             if (!port.IsConnectedTo(this)) port.connections.Add(new PortConnection(this));
             node.OnCreateConnection(this, port);
             port.node.OnCreateConnection(this, port);
+        }
+
+        /// <summary>
+        /// Sets both input and output fields of connected nodes to reference to connected nodes if the
+        /// fields are of that type
+        /// </summary>
+        /// <param name="otherPort"></param>
+        private void SetBackingValuesIfCorrectTypes(NodePort otherPort)
+        {
+            SetBackingValueIfCorrectType(otherPort.node);
+            otherPort.SetBackingValueIfCorrectType(node);
+        }
+
+
+        /// <summary>
+        /// If the field on node is the same type as the node it connects 
+        /// to then set that field value to actually be the node
+        /// </summary>
+        /// <param name="connectingNode"></param>        
+        private void SetBackingValueIfCorrectType(Node connectingNode)
+        {
+            if (IsBackingValueTypeSameAsConnectingNode(connectingNode))
+            {
+                var fieldInfo = node.GetType().GetField(fieldName);
+                fieldInfo.SetValue(node, connectingNode);
+            }
+        }
+
+        /// <summary>
+        /// Checks if the output/input field is the same type as <paramref name="connectingNode"/>
+        /// </summary>
+        /// <param name="connectingNode"></param>
+        /// <returns></returns>
+        private bool IsBackingValueTypeSameAsConnectingNode(Node connectingNode)
+        {
+            return connectingNode.GetType().IsSubclassOf(Type.GetType(_typeQualifiedName));
+        }
+
+        /// <summary>
+        /// If the fields on nodes are the same types as the nodes that are disconnected
+        /// from then clear those field values
+        /// </summary>
+        /// <param name="otherPort"></param>
+        private void ClearBackingValuesIfCorrectTypes(NodePort otherPort)
+        {
+            ClearBackingValueIfCorrectType(otherPort.node);
+            otherPort.ClearBackingValueIfCorrectType(node);
+        }
+
+        /// <summary>
+        /// If the field on node is the same type as the node it disconnects 
+        /// from then clear that field value
+        /// </summary>
+        /// <param name="disconnectingNode"></param>
+        private void ClearBackingValueIfCorrectType(Node disconnectingNode)
+        {
+            if (IsBackingValueTypeSameAsConnectingNode(disconnectingNode))
+            {
+                var fieldInfo = node.GetType().GetField(fieldName);
+                fieldInfo.SetValue(node, null);
+            }
         }
 
         public List<NodePort> GetConnections() {
@@ -274,6 +339,7 @@ namespace XNode {
                     connections.RemoveAt(i);
                 }
             }
+
             if (port != null) {
                 // Remove the other ports connection to this port
                 for (int i = 0; i < port.connections.Count; i++) {
@@ -282,6 +348,8 @@ namespace XNode {
                     }
                 }
             }
+            ClearBackingValuesIfCorrectTypes(port);
+
             // Trigger OnRemoveConnection
             node.OnRemoveConnection(this);
             if (port != null) port.node.OnRemoveConnection(port);
