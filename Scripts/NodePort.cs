@@ -235,6 +235,10 @@ namespace XNode {
             {
                 var fieldInfo = node.GetType().GetField(fieldName);
                 fieldInfo.SetValue(node, connectingNode);
+#if UNITY_EDITOR
+                UnityEditor.EditorUtility.SetDirty(node);
+#endif
+
             }
         }
 
@@ -270,6 +274,9 @@ namespace XNode {
             {
                 var fieldInfo = node.GetType().GetField(fieldName);
                 fieldInfo.SetValue(node, null);
+#if UNITY_EDITOR
+                UnityEditor.EditorUtility.SetDirty(node);
+#endif
             }
         }
 
